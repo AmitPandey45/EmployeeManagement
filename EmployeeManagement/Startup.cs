@@ -39,6 +39,11 @@ namespace EmployeeManagement
             {
                 app.UseDeveloperExceptionPage();
             }
+            else
+            {
+                app.UseExceptionHandler("/pragim/Error");
+                app.UseStatusCodePagesWithReExecute("/pragim/Error/{0}");
+            }
 
             app.UseStaticFiles();
             //app.UseMvcWithDefaultRoute();
