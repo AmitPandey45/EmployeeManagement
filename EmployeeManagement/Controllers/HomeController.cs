@@ -31,6 +31,7 @@ namespace EmployeeManagement.Controllers
         [Route("{id?}")]
         public ViewResult Details(int? id)
         {
+            throw new Exception("An exception occurred while trying to get employee details");
             Employee employee = employeeRepository.GetEmployee(id.Value);
 
             if(employee ==null)
