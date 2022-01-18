@@ -35,14 +35,6 @@ namespace EmployeeManagement.Controllers
         [Route("{id?}")]
         public ViewResult Details(int? id)
         {
-            //throw new Exception("An exception occurred while trying to get employee details");
-            logger.LogTrace("Trace Log");
-            logger.LogDebug("Debug Log");
-            logger.LogInformation("Information Log");
-            logger.LogWarning("Warning Log");
-            logger.LogError("Error Log");
-            logger.LogCritical("Critical Log");
-
             Employee employee = employeeRepository.GetEmployee(id.Value);
 
             if(employee ==null)
