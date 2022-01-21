@@ -24,12 +24,15 @@ namespace EmployeeManagement.Controllers
             this.logger = logger;
         }
 
+        [HttpGet]
+        [AllowAnonymous]
         public ViewResult Index()
         {
             return View(employeeRepository.GetAllEmployee());
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public ViewResult Details(int? id)
         {
             Employee employee = employeeRepository.GetEmployee(id.Value);
@@ -49,14 +52,12 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpGet]
-        [Authorize]
         public ViewResult Create()
         {
             return View();
         }
 
         [HttpPost]
-        [Authorize]
         public IActionResult Create(EmployeeCreateViewModel model)
         {
             if (ModelState.IsValid)
@@ -79,7 +80,6 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpGet]
-        [Authorize]
         public ViewResult Edit(int id)
         {
             Employee employee = employeeRepository.GetEmployee(id);
@@ -96,7 +96,6 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpPost]
-        [Authorize]
         public IActionResult Edit(EmployeeEditViewModel model)
         {
             if (ModelState.IsValid)

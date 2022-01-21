@@ -5,7 +5,7 @@ namespace EmployeeManagement.ViewModels
     public class LoginViewModel
     {
         [Required]
-        [EmailAddress]
+        [EmailAddress(ErrorMessage = "Invalid Email Format")]
         public string Email { get; set; }
 
         [Required]
