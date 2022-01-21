@@ -1,5 +1,6 @@
 ﻿using EmployeeManagement.Models;
 using EmployeeManagement.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -8,7 +9,6 @@ using System.IO;
 
 namespace EmployeeManagement.Controllers
 {
-    [Route("pragim/[controller]/[action]")]
     public class HomeController : Controller
     {
         private readonly IEmployeeRepository employeeRepository;
@@ -24,15 +24,12 @@ namespace EmployeeManagement.Controllers
             this.logger = logger;
         }
 
-        [Route("")]
-        [Route("~/pragim")]
-        [Route("~/pragim/Home")]
         public ViewResult Index()
         {
             return View(employeeRepository.GetAllEmployee());
         }
 
-        [Route("{id?}")]
+        [HttpGet]
         public ViewResult Details(int? id)
         {
             Employee employee = employeeRepository.GetEmployee(id.Value);
@@ -52,12 +49,14 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpGet]
+        [Authorize]
         public ViewResult Create()
         {
             return View();
         }
 
         [HttpPost]
+        [Authorize]
         public IActionResult Create(EmployeeCreateViewModel model)
         {
             if (ModelState.IsValid)
@@ -80,7 +79,7 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpGet]
-        [Route("{id?}")]
+        [Authorize]
         public ViewResult Edit(int id)
         {
             Employee employee = employeeRepository.GetEmployee(id);
@@ -97,8 +96,8 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpPost]
-        [Route("{id?}")]
-        public IActionResult Edit(int id, EmployeeEditViewModel model)
+        [Authorize]
+        public IActionResult Edit(EmployeeEditViewModel model)
         {
             if (ModelState.IsValid)
             {
