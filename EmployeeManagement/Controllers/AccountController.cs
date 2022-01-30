@@ -21,16 +21,24 @@ namespace EmployeeManagement.Controllers
 
         [AcceptVerbs("Get", "Post")]
         [AllowAnonymous]
-        public async Task<IActionResult> IsEmailInUse(string email)
+        public async Task<IActionResult> IsEmailInUse(string email, string id = null)
         {
             ApplicationUser user = await userManager.FindByEmailAsync(email);
 
-            if(user == null)
+            if (user == null)
             {
                 return Json(true);
             }
             else
             {
+                //// Checking this condition for updating data
+                if (!string.IsNullOrEmpty(id) && 
+                    user != null &&
+                    user.Id.Equals(id))
+                {
+                    return Json(true);
+                }
+
                 return Json($"Email {email} is already in use");
             }
         }
@@ -59,6 +67,11 @@ namespace EmployeeManagement.Controllers
 
                 if (identityResult.Succeeded)
                 {
+                    if (signInManager.IsSignedIn(User) && User.IsInRole("Admin"))
+                    {
+                        return RedirectToAction("listusers", "administration");
+                    }
+
                     await signInManager.SignInAsync(user, isPersistent: false);
                     return RedirectToAction("index", "home");
                 }
@@ -115,6 +128,13 @@ namespace EmployeeManagement.Controllers
             }
 
             return View(model);
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> AccessDenied()
+        {
+            return View();
         }
     }
 }
