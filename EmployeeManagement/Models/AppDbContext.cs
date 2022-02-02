@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,12 @@ namespace EmployeeManagement.Models
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.SeedEmployeeData();
+
+            foreach(IMutableForeignKey foreignKey in modelBuilder.Model.GetEntityTypes()
+                .SelectMany(s=>s.GetForeignKeys()))
+            {
+                foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+            }
         }
     }
 }

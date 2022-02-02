@@ -3,6 +3,8 @@ using EmployeeManagement.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -15,12 +17,15 @@ namespace EmployeeManagement.Controllers
     {
         private readonly RoleManager<IdentityRole> roleManager;
         private readonly UserManager<ApplicationUser> userManager;
+        private readonly ILogger<AdministrationController> logger;
 
         public AdministrationController(RoleManager<IdentityRole> roleManager,
-            UserManager<ApplicationUser> userManager)
+            UserManager<ApplicationUser> userManager,
+            ILogger<AdministrationController> logger)
         {
             this.roleManager = roleManager;
             this.userManager = userManager;
+            this.logger = logger;
         }
 
         [HttpGet]
@@ -300,20 +305,130 @@ namespace EmployeeManagement.Controllers
                     return View("NotFound");
                 }
 
-                IdentityResult result = await roleManager.DeleteAsync(role);
-
-                if (result.Succeeded)
+                try
                 {
-                    return RedirectToAction("listroles");
+                    IdentityResult result = await roleManager.DeleteAsync(role);
+
+                    if (result.Succeeded)
+                    {
+                        return RedirectToAction("listroles");
+                    }
+
+                    foreach (IdentityError error in result.Errors)
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
                 }
-
-                foreach (IdentityError error in result.Errors)
+                catch (DbUpdateException ex)
                 {
-                    ModelState.AddModelError(string.Empty, error.Description);
+                    logger.LogError($"Error deleting role {ex}");
+                    ViewBag.ErrorTitle = $"{role.Name} role is in use";
+                    ViewBag.ErrorMessage = $@"{role.Name} role cannot be deleted as there are users in this role.
+                                             If you want to delete this role, please remove the users from the role
+                                             and then try to delete";
+
+                    return View("Error");
                 }
             }
 
             return View("listroles");
         }
+
+        [HttpGet]
+        public async Task<IActionResult> ManageUserRoles(string userId)
+        {
+            ApplicationUser user = await userManager.FindByIdAsync(userId);
+
+            if (user == null)
+            {
+                ViewBag.ErrorMessage = $"User with Id = {userId} cannot be found";
+                return View("NotFound");
+            }
+
+            ViewBag.UserId = user.Id;
+
+            var viewModel = new List<UserRolesViewModel>();
+            IEnumerable<IdentityRole> roles = roleManager.Roles.ToList();
+
+            foreach (var role in roles)
+            {
+                var userRole = new UserRolesViewModel
+                {
+                    RoleId = role.Id,
+                    RoleName = role.Name
+                };
+
+                if (await userManager.IsInRoleAsync(user, role.Name))
+                {
+                    userRole.IsSelected = true;
+                }
+
+                viewModel.Add(userRole);
+            }
+
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ManageUserRoles(string userId, IEnumerable<UserRolesViewModel> model)
+        {
+            if (ModelState.IsValid)
+            {
+                ApplicationUser user = await userManager.FindByIdAsync(userId);
+
+                if (user == null)
+                {
+                    ViewBag.ErrorMessage = $"User with Id = {userId} cannot be found";
+                    return View("NotFound");
+                }
+
+                IList<string> roles = await userManager.GetRolesAsync(user);
+                IdentityResult result = null;
+
+                //// First Approach - Remove existing roles for User and Add all selected roles for user
+                //result = await userManager.RemoveFromRolesAsync(user, roles);
+
+                //if (!result.Succeeded)
+                //{
+                //    ModelState.AddModelError(string.Empty, "Cannot remove user existing roles");
+                //    return View(model);
+                //}
+
+                //result = await userManager.AddToRolesAsync(user,
+                //    model.Where(s => s.IsSelected).Select(s => s.RoleName));
+
+                //if (!result.Succeeded)
+                //{
+                //    ModelState.AddModelError(string.Empty, "Cannot add selected roles to user");
+                //    return View(model);
+                //}
+
+                //// Second Approach
+                //// Step1: Remove those roles which are exist for user but not selected while updating for user
+                IEnumerable<string> selectedAllRoles = model.Where(w => w.IsSelected)
+                    .Select(s => s.RoleName);
+                IEnumerable<string> removeNotSelectedRoles = roles.Except(selectedAllRoles);
+                result = await userManager.RemoveFromRolesAsync(user, removeNotSelectedRoles);
+
+                if (!result.Succeeded)
+                {
+                    ModelState.AddModelError(string.Empty, "Cannot remove user existing roles");
+                    return View(model);
+                }
+
+                //// Step2: Add those selected roles which do not exist for user while updating
+                IEnumerable<string> addSelectedRoles = selectedAllRoles.Except(roles);
+                result = await userManager.AddToRolesAsync(user, addSelectedRoles);
+
+                if (!result.Succeeded)
+                {
+                    ModelState.AddModelError(string.Empty, "Cannot add selected roles to user");
+                    return View(model);
+                }
+            }
+
+            return RedirectToAction("EditUser", new { Id = userId });
+        }
+
     }
 }
