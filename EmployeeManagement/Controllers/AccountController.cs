@@ -129,12 +129,5 @@ namespace EmployeeManagement.Controllers
 
             return View(model);
         }
-
-        [HttpGet]
-        [AllowAnonymous]
-        public async Task<IActionResult> AccessDenied()
-        {
-            return View();
-        }
     }
 }

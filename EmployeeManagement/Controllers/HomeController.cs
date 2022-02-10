@@ -1,4 +1,6 @@
-﻿using EmployeeManagement.Models;
+﻿using EmployeeManagement.Enums;
+using EmployeeManagement.Extensions;
+using EmployeeManagement.Models;
 using EmployeeManagement.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
@@ -6,6 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
+using System.Linq;
+using System.Security.Claims;
 
 namespace EmployeeManagement.Controllers
 {
@@ -28,6 +32,18 @@ namespace EmployeeManagement.Controllers
         [AllowAnonymous]
         public ViewResult Index()
         {
+            var description = ClaimRole.CreateRole.GetDescription();
+
+            var dict1 = EnumExtension.ToDictionary<ClaimRole>();
+            var dict2 = EnumExtension.ToDictionaryWithEnumAsKeyValue<ClaimRole>();
+            var dict3 = EnumExtension.ToDictionaryWithDescriptionAsValue<ClaimRole>();
+
+            var dict4 = EnumExtension.ToDictionary<ClaimPolicy>();
+            var dict5 = EnumExtension.ToDictionaryWithEnumAsKeyValue<ClaimPolicy>();
+            var dict6 = EnumExtension.ToDictionaryWithDescriptionAsValue<ClaimPolicy>();
+
+            var ddd = User.Claims.Where(c => c.Type == ClaimTypes.Role);
+
             return View(employeeRepository.GetAllEmployee());
         }
 

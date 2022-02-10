@@ -12,7 +12,8 @@ using System.Threading.Tasks;
 
 namespace EmployeeManagement.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    //[Authorize(Roles = "Admin")]
+    [Authorize(Policy = ClaimsStore.AdminRolePolicy)]
     public class AdministrationController : Controller
     {
         private readonly RoleManager<IdentityRole> roleManager;
@@ -224,7 +225,7 @@ namespace EmployeeManagement.Controllers
                 UserName = user.UserName,
                 City = user.City,
                 Roles = userRoles,
-                Claims = userClaims.Select(s => s.Value).ToList()
+                Claims = userClaims.Select(s => $"{s.Type} - {s.Value}").ToList()
             };
 
             return View(viewModel);
@@ -293,6 +294,7 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = ClaimsStore.DeleteRolePolicy)]
         public async Task<IActionResult> DeleteRole(string id)
         {
             if (ModelState.IsValid)
@@ -335,6 +337,7 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = ClaimsStore.EditRolePolicy)]
         public async Task<IActionResult> ManageUserRoles(string userId)
         {
             ApplicationUser user = await userManager.FindByIdAsync(userId);
@@ -370,6 +373,7 @@ namespace EmployeeManagement.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = ClaimsStore.EditRolePolicy)]
         public async Task<IActionResult> ManageUserRoles(string userId, IEnumerable<UserRolesViewModel> model)
         {
             if (ModelState.IsValid)
@@ -427,8 +431,122 @@ namespace EmployeeManagement.Controllers
                 }
             }
 
-            return RedirectToAction("EditUser", new { Id = userId });
+            return RedirectToAction("edituser", new { Id = userId });
         }
 
+        [HttpGet]
+        public async Task<IActionResult> ManageUserClaims(string userId)
+        {
+            ApplicationUser user = await userManager.FindByIdAsync(userId);
+
+            if (user == null)
+            {
+                ViewBag.ErrorMessage = $"User with Id = {userId} cannot be found";
+                return View("NotFound");
+            }
+
+            IEnumerable<Claim> existingUserClaims = await userManager.GetClaimsAsync(user);
+
+            var viewModel = new UserClaimsViewModel
+            {
+                UserId = user.Id
+            };
+
+            foreach (Claim claim in ClaimsStore.AllClaims)
+            {
+                var userClaim = new UserClaim
+                {
+                    ClaimType = claim.Type
+                };
+
+                //if (existingUserClaims.Contains(claim))
+                //{
+                //    userClaim.IsSelected = true;
+                //}
+
+                userClaim.IsSelected = existingUserClaims
+                    .Any(s => s.Type.Equals(claim.Type) && s.Value.Equals(ClaimsStore.ClaimValueYes));
+
+                viewModel.Claims.Add(userClaim);
+            }
+
+            return View(viewModel);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ManageUserClaims(UserClaimsViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                ApplicationUser user = await userManager.FindByIdAsync(model.UserId);
+
+                if (user == null)
+                {
+                    ViewBag.ErrorMessage = $"User with Id = {model.UserId} cannot be found";
+                    return View("NotFound");
+                }
+
+                IEnumerable<Claim> existingUserClaims = await userManager.GetClaimsAsync(user);
+
+                IdentityResult result = null;
+                //// Approach 1
+                //// Remove existing Claims
+                //result = await userManager.RemoveClaimsAsync(user, existingUserClaims);
+
+                //if (!result.Succeeded)
+                //{
+                //    ModelState.AddModelError(string.Empty, "Cannot remove user existing claims");
+                //    return View(model);
+                //}
+
+                //// Add selected claims
+                //IEnumerable<Claim> selectedUserClaims = model.Claims
+                //    .Where(w => w.IsSelected)
+                //    .Select(s => new Claim(s.ClaimType, s.ClaimType));
+
+                //result = await userManager.AddClaimsAsync(user, selectedUserClaims);
+
+                //if (!result.Succeeded)
+                //{
+                //    ModelState.AddModelError(string.Empty, "Cannot add selected claims to user");
+                //    return View(model);
+                //}
+
+                //// Approach 2
+                //// Step1: Remove those claims which are exist for user but not selected while updating user claims
+                IEnumerable<Claim> selectedUserClaims = model.Claims
+                    //.Where(w => w.IsSelected)
+                    .Select(s => new Claim(s.ClaimType, s.IsSelected ? ClaimsStore.ClaimValueYes : ClaimsStore.ClaimValueNo));
+
+                IEnumerable<Claim> removeNotSelectedClaims = existingUserClaims.Except(selectedUserClaims);
+
+                result = await userManager.RemoveClaimsAsync(user, removeNotSelectedClaims);
+                if (!result.Succeeded)
+                {
+                    ModelState.AddModelError(string.Empty, "Cannot remove user existing claims");
+                    return View(model);
+                }
+
+                //// Step2: Add those selected claims which do not exist for user while updating
+                IEnumerable<Claim> addSelectedClaimsNotExistForUser = selectedUserClaims.Except(existingUserClaims);
+
+                result = await userManager.AddClaimsAsync(user, addSelectedClaimsNotExistForUser);
+
+                if (!result.Succeeded)
+                {
+                    ModelState.AddModelError(string.Empty, "Cannot add selected claims to user");
+                    return View(model);
+                }
+            }
+
+            return RedirectToAction("edituser", new { Id = model.UserId });
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> AccessDenied()
+        {
+            return View();
+        }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using EmployeeManagement.Models;
+using EmployeeManagement.Security;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -39,11 +40,35 @@ namespace EmployeeManagement
                 options.Cookie.Name = "AF_EmployeeManagement";
             });
 
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.AccessDeniedPath = "/administration/accessdenied";
+            });
+
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
                     options.Cookie.Name = "AI_EmployeeManagement";
                 });
+
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy(ClaimsStore.DeleteRolePolicy,
+                    policy => policy.RequireClaim(ClaimsStore.DeleteRole, ClaimsStore.ClaimValueYes));
+
+                //options.AddPolicy(ClaimsStore.EditRolePolicy,
+                //    policy => policy.RequireAssertion(context =>
+                //    (context.User.IsInRole(ClaimsStore.AdminRole) &&
+                //    context.User.HasClaim(claim => claim.Type.Equals(ClaimsStore.EditRole) && claim.Value.Equals(ClaimsStore.ClaimValueYes))) ||
+                //    context.User.IsInRole(ClaimsStore.SuperAdminRole)
+                //    ));
+
+                options.AddPolicy(ClaimsStore.EditRolePolicy,
+                    policy => policy.AddRequirements(new ManageAdminRolesAndClaimsRequirement()));
+
+                options.AddPolicy(ClaimsStore.AdminRolePolicy,
+                    policy => policy.RequireRole(ClaimsStore.AdminRole));
+            });
 
             services.AddMvc(options =>
             {
@@ -54,6 +79,7 @@ namespace EmployeeManagement
                 .AddXmlSerializerFormatters();
 
             services.AddScoped<IEmployeeRepository, SQLEmployeeRepository>();
+            services.AddSingleton<IAuthorizationHandler, CanEditOnlyOtherAdminRolesAndClaimsHandler>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
