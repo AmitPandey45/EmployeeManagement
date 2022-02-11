@@ -21,14 +21,14 @@ namespace EmployeeManagement.Security
                 return Task.CompletedTask;
             }
 
-            string loggedInAdminId =
+            string loggedInUserId =
                 context.User.Claims.FirstOrDefault(c => c.Type.Equals(ClaimTypes.NameIdentifier)).Value;
 
-            string adminIdBeingEdited = authFilterContext.HttpContext.Request.Query["userId"];
+            string userIdBeingEdited = authFilterContext.HttpContext.Request.Query["userId"];
 
             if(context.User.IsInRole(ClaimsStore.AdminRole) &&
                 context.User.HasClaim(claim => claim.Type.Equals(ClaimsStore.EditRole) && claim.Value.Equals(ClaimsStore.ClaimValueYes)) &&
-                !adminIdBeingEdited.ToLower().Equals(loggedInAdminId.ToLower()))
+                !userIdBeingEdited.ToLower().Equals(loggedInUserId.ToLower()))
             {
                 context.Succeed(requirement);
             }
