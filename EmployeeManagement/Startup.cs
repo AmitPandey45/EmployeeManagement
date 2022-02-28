@@ -14,6 +14,12 @@ namespace EmployeeManagement
 {
     public class Startup
     {
+        private const string AppSettings = "AppSettings";
+        private const string GoogleSecretDetails = "GoogleSecretDetails";
+        private const string FacebookSecretDetails = "FacebookSecretDetails";
+        private const string ClientId = "ClientId";
+        private const string ClientSecret = "ClientSecret";
+
         private readonly IConfiguration _config;
 
         public Startup(IConfiguration config)
@@ -25,6 +31,9 @@ namespace EmployeeManagement
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
+            string googleSecretDetailsSection = $"{AppSettings}:{GoogleSecretDetails}";
+            string facebookSecretDetailsSection = $"{AppSettings}:{FacebookSecretDetails}";
+
             services.AddDbContextPool<AppDbContext>(
                 options => options.UseSqlServer(_config.GetConnectionString("EmployeeDBConnection")));
 
@@ -32,8 +41,11 @@ namespace EmployeeManagement
             {
                 options.Password.RequiredLength = 10;
                 options.Password.RequiredUniqueChars = 3;
+
+                options.SignIn.RequireConfirmedEmail = true;
             })
-            .AddEntityFrameworkStores<AppDbContext>();
+            .AddEntityFrameworkStores<AppDbContext>()
+            .AddDefaultTokenProviders();
 
             services.AddAntiforgery(options =>
             {
@@ -69,6 +81,18 @@ namespace EmployeeManagement
                 options.AddPolicy(ClaimsStore.AdminRolePolicy,
                     policy => policy.RequireRole(ClaimsStore.AdminRole));
             });
+
+            services.AddAuthentication()
+                .AddGoogle(options =>
+                {
+                    options.ClientId = _config.GetValue<string>($"{googleSecretDetailsSection}:{ClientId}");
+                    options.ClientSecret = _config.GetValue<string>($"{googleSecretDetailsSection}:{ClientSecret}");
+                })
+                .AddFacebook(options =>
+                {
+                    options.AppId = _config.GetValue<string>($"{facebookSecretDetailsSection}:{ClientId}");
+                    options.AppSecret = _config.GetValue<string>($"{facebookSecretDetailsSection}:{ClientSecret}");
+                });
 
             services.AddMvc(options =>
             {
