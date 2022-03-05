@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -167,7 +168,7 @@ namespace EmployeeManagement.Controllers
                     model.Email,
                     model.Password,
                     model.RememberMe,
-                    lockoutOnFailure: false);
+                    lockoutOnFailure: true);
 
                 if (signInResult.Succeeded)
                 {
@@ -179,6 +180,11 @@ namespace EmployeeManagement.Controllers
                     {
                         return RedirectToAction("index", "home");
                     }
+                }
+                
+                if (signInResult.IsLockedOut)
+                {
+                    return View("AccountLocked");
                 }
 
                 ModelState.AddModelError(string.Empty, "Invalid Login Attempt!!");
@@ -281,6 +287,184 @@ namespace EmployeeManagement.Controllers
             }
         }
 
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ForgotPassword()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                ApplicationUser user = await userManager.FindByEmailAsync(model.Email);
+
+                if (user != null &&
+                    await userManager.IsEmailConfirmedAsync(user))
+                {
+                    string passwordResetLink = await this.GetPasswordResetLink(user);
+                    logger.LogWarning(passwordResetLink);
+
+                    return View("ForgotPasswordConfirmation");
+                }
+
+                return View("ForgotPasswordConfirmation");
+            }
+
+            return View(model);
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ResetPassword(string email, string token)
+        {
+            if (string.IsNullOrEmpty(email) ||
+                string.IsNullOrEmpty(token))
+            {
+                ModelState.AddModelError(string.Empty, "Invalid password reset token");
+            }
+
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                ApplicationUser user = await userManager.FindByEmailAsync(model.Email);
+
+                if (user != null)
+                {
+                    IdentityResult result = 
+                        await userManager.ResetPasswordAsync(user, model.Token, model.Password);
+
+                    if (result.Succeeded)
+                    {
+                        if (user.LockoutEnabled)
+                        {
+                            await userManager.SetLockoutEndDateAsync(user, DateTime.UtcNow);
+                        }
+
+                        return View("ResetPasswordConfirmation");
+                    }
+
+                    foreach (IdentityError error in result.Errors)
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+
+                    return View(model);
+                }
+
+                return View("ResetPasswordConfirmation");
+            }
+
+            return View(model);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ChangePassword()
+        {
+            ApplicationUser user = await userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return RedirectToAction("login");
+            }
+
+            if (string.IsNullOrEmpty(user.PasswordHash))
+            {
+                return RedirectToAction("AddPassword");
+            }
+
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                ApplicationUser user = await userManager.GetUserAsync(User);
+
+                if (user == null)
+                {
+                    return RedirectToAction("login");
+                }
+
+                IdentityResult result =
+                    await userManager.ChangePasswordAsync(user, model.CurrentPassword, model.ConfirmPassword);
+
+                if (!result.Succeeded)
+                {
+                    foreach (IdentityError error in result.Errors)
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+
+                    return View();
+                }
+
+                await signInManager.RefreshSignInAsync(user);
+                return View("ChangePasswordConfirmation");
+            }
+
+            return View(model);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> AddPassword()
+        {
+            ApplicationUser user = await userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return RedirectToAction("login");
+            }
+
+            if (!string.IsNullOrEmpty(user.PasswordHash))
+            {
+                return RedirectToAction("ChangePassword");
+            }
+
+            return View();
+        }
+
+        public async Task<IActionResult> AddPassword(AddPasswordViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                ApplicationUser user = await userManager.GetUserAsync(User);
+
+                if (user == null)
+                {
+                    return RedirectToAction("login");
+                }
+
+                IdentityResult result = await userManager.AddPasswordAsync(user, model.Password);
+
+                if (!result.Succeeded)
+                {
+                    foreach (IdentityError error in result.Errors)
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+
+                    return View();
+                }
+
+                await signInManager.RefreshSignInAsync(user);
+                
+                return View("AddPasswordConfirmation");
+            }
+
+            return View();
+        }
 
         private IActionResult SuccessfulRegistration()
         {
@@ -296,6 +480,14 @@ on the confirmation link we have emailed you.";
             
             return Url.Action("confirmemail", "account",
                 new { userId = user.Id, token = token }, Request.Scheme);
+        }
+
+        private async Task<string> GetPasswordResetLink(ApplicationUser user)
+        {
+            string token = await userManager.GeneratePasswordResetTokenAsync(user);
+
+            return Url.Action("resetpassword", "account",
+                new { email = user.Email, token = token }, Request.Scheme);
         }
     }
 }

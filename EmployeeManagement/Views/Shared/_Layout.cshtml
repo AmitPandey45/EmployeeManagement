@@ -47,7 +47,7 @@
     <div class="container">
         <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
             <a class="navbar-brand" asp-controller="home" asp-action="index">
-                <img src="~/images//employees.png" height="30px" width="30px" />
+                <img src="~/images//employees.png" height="30" width="30" />
             </a>
             <button type="button" class="navbar-toggler" data-toggle="collapse" data-target="#collapsibleNavbar">
                 <span class="navbar-toggler-icon"></span>
@@ -60,8 +60,7 @@
                     <li class="nav-item">
                         <a asp-controller="home" asp-action="create" class="nav-link">Create</a>
                     </li>
-                    @if (signInManager.IsSignedIn(User) && 
-                        (User.IsInRole(ClaimsStore.AdminRole) || User.IsInRole(ClaimsStore.SuperAdminRole)))
+                    @if (signInManager.IsSignedIn(User))
                     {
                         <li class="nav-item dropdown">
                             <a href="#" id="navbarDropdownMenuLink" class="nav-link dropdown-toggle"
@@ -69,11 +68,18 @@
                                 Manage
                             </a>
                             <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-                                <a asp-controller="administration" asp-action="listusers" class="dropdown-item">
-                                    Users
-                                </a>
-                                <a asp-controller="administration" asp-action="listroles" class="dropdown-item">
-                                    Roles
+                                @if (User.IsInRole(ClaimsStore.AdminRole) || User.IsInRole(ClaimsStore.SuperAdminRole))
+                                {
+                                    <a asp-controller="administration" asp-action="listusers" class="dropdown-item">
+                                        Users
+                                    </a>
+                                    <a asp-controller="administration" asp-action="listroles" class="dropdown-item">
+                                        Roles
+                                    </a>
+                                }
+
+                                <a asp-controller="account" asp-action="changepassword" class="dropdown-item">
+                                    Password
                                 </a>
                             </div>
                         </li>

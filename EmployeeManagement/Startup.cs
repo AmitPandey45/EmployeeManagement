@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace EmployeeManagement
 {
@@ -19,6 +20,7 @@ namespace EmployeeManagement
         private const string FacebookSecretDetails = "FacebookSecretDetails";
         private const string ClientId = "ClientId";
         private const string ClientSecret = "ClientSecret";
+        private const string EmailConfirmationTokenProvider = "EmailConfirmationTokenProvider";
 
         private readonly IConfiguration _config;
 
@@ -43,9 +45,27 @@ namespace EmployeeManagement
                 options.Password.RequiredUniqueChars = 3;
 
                 options.SignIn.RequireConfirmedEmail = true;
+
+                options.Tokens.EmailConfirmationTokenProvider = EmailConfirmationTokenProvider;
+
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<AppDbContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddTokenProvider<CustomEmailConfirmationTokenProvider<ApplicationUser>>(EmailConfirmationTokenProvider);
+
+            //// Sets all token expiry time to 1 (for validation purpose only) min
+            services.Configure<DataProtectionTokenProviderOptions>(options =>
+            {
+                options.TokenLifespan = TimeSpan.FromMinutes(1);
+            });
+
+            //// Sets email token expiry time to 2 (for validation purpose only) mins
+            services.Configure<CustomEmailConfirmationTokenProviderOptions>(options =>
+            {
+                options.TokenLifespan = TimeSpan.FromMinutes(2);
+            });
 
             services.AddAntiforgery(options =>
             {
@@ -65,8 +85,13 @@ namespace EmployeeManagement
 
             services.AddAuthorization(options =>
             {
+                //options.AddPolicy(ClaimsStore.DeleteRolePolicy,
+                //    policy => policy.RequireClaim(ClaimsStore.DeleteRole, ClaimsStore.ClaimValueYes));
+
                 options.AddPolicy(ClaimsStore.DeleteRolePolicy,
-                    policy => policy.RequireClaim(ClaimsStore.DeleteRole, ClaimsStore.ClaimValueYes));
+                    policy => policy.RequireAssertion(context =>
+                    context.User.HasClaim(ClaimsStore.DeleteRole, ClaimsStore.ClaimValueYes) ||
+                    context.User.IsInRole(ClaimsStore.SuperAdminRole)));
 
                 //options.AddPolicy(ClaimsStore.EditRolePolicy,
                 //    policy => policy.RequireAssertion(context =>
@@ -79,7 +104,9 @@ namespace EmployeeManagement
                     policy => policy.AddRequirements(new ManageAdminRolesAndClaimsRequirement()));
 
                 options.AddPolicy(ClaimsStore.AdminRolePolicy,
-                    policy => policy.RequireRole(ClaimsStore.AdminRole));
+                    policy => policy.RequireAssertion(context => 
+                    context.User.IsInRole(ClaimsStore.AdminRole) || 
+                    context.User.IsInRole(ClaimsStore.SuperAdminRole)));
             });
 
             services.AddAuthentication()

@@ -544,7 +544,7 @@ namespace EmployeeManagement.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> AccessDenied()
+        public IActionResult AccessDenied()
         {
             return View();
         }
